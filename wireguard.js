@@ -5,9 +5,9 @@ const version = require('./package.json').version;
 const db = require('./db');
 const http = require('http');
 
-let gateway = '10.100.0.1';
+let gateway = '172.16.0.1';
 let managerConfig = '0.0.0.0:6002';
-let interface = 'wg0';
+let interface = 'tun0';
 const argv = process.argv.filter((ele, index) => index > 1);
 argv.forEach((f, index) => {
   if(f === '--manager' || f === '-m') {
