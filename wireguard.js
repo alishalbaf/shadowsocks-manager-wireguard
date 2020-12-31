@@ -42,19 +42,19 @@ const sendAddMessage = async (port, password) => {
   console.log('add: ' + password.trim());
   const a = port % 254;
   const b = (port - a) / 254;
-  await runCommand(`wg set ${ interface } peer ${ password.trim() } allowed-ips ${ gateway.split('.')[0] }.${ gateway.split('.')[1] }.${ b }.${ a + 1 }/32`);
+  await runCommand(`tunsafe set ${ interface } peer ${ password.trim() } allowed-ips ${ gateway.split('.')[0] }.${ gateway.split('.')[1] }.${ b }.${ a + 1 }/32`);
   return Promise.resolve('ok');
 };
 
 const sendDelMessage = async (port, password) => {
   if(password) {
     console.log('del: ' + password);
-    await runCommand(`wg set ${ interface } peer ${ password } remove`);
+    await runCommand(`tunsafe set ${ interface } peer ${ password } remove`);
     return Promise.resolve('ok');
   }
   const accounts = await db.listAccountObj();
   console.log('del: ' + accounts[port]);
-  await runCommand(`wg set ${ interface } peer ${ accounts[port] } remove`);
+  await runCommand(`tunsafe set ${ interface } peer ${ accounts[port] } remove`);
   return Promise.resolve('ok');
 };
 
@@ -99,7 +99,7 @@ const compareWithLastFlow = (flow, lastFlow) => {
 let firstFlow = true;
 
 const startUp = async () => {
-  const result = await runCommand(`wg show ${ interface } transfer`);
+  const result = await runCommand(`tunsafe show ${ interface } transfer`);
   const peers = result.split('\n').filter(f => f).map(m => {
     const data = m.split('\t');
     return data[0];
@@ -113,7 +113,7 @@ const startUp = async () => {
 };
 
 const resend = async () => {
-  const result = await runCommand(`wg show ${ interface } transfer`);
+  const result = await runCommand(`tunsafe show ${ interface } transfer`);
   const peers = result.split('\n').filter(f => f).map(m => {
     const data = m.split('\t');
     return {
@@ -246,7 +246,7 @@ const getClientIp = async port => {
   if(!account) {
     return [];
   }
-  const result = await runCommand(`wg show ${ interface } dump | grep ${ account }`);
+  const result = await runCommand(`tunsafe show ${ interface } dump | grep ${ account }`);
   const client = result.split(/\s/)[2];
   if(client.trim() === '(none)') {
     return Promise.resolve([]);
