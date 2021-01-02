@@ -9,6 +9,18 @@ let gateway = '172.16.0.1';
 let managerConfig = '0.0.0.0:6002';
 let interface = 'tun0';
 const argv = process.argv.filter((ele, index) => index > 1);
+const toMib=(p1, meter)=> {
+    switch (meter) {
+        case 'KiB':
+            return p1 * 1024;
+        case 'MiB':
+            return p1 * 1024 * 1024;
+        case 'GiB':
+            return p1 * 1024 * 1024;
+        default:
+            return p1;
+    }
+}
 argv.forEach((f, index) => {
   if(f === '--manager' || f === '-m') {
     managerConfig = argv[index + 1];
@@ -29,6 +41,7 @@ const runCommand = async cmd => {
   return new Promise((resolve, reject) => {
     exec(cmd, async (err, stdout, stderr) => {
       if(err) {
+	console.error("bad things happened!");
         console.error(err);
         return reject(stderr);
       } else {
@@ -99,11 +112,12 @@ const compareWithLastFlow = (flow, lastFlow) => {
 let firstFlow = true;
 
 const startUp = async () => {
-  const result = await runCommand(`tunsafe show ${ interface } transfer`);
-  const peers = result.split('\n').filter(f => f).map(m => {
-    const data = m.split('\t');
-    return data[0];
+  const result = await runCommand(`tunsafe show ${ interface }`);
+  const peers = result.split('peer: ').filter(f => f).map(m => {
+   // const data = m.split('peer: ');
+    return m.substring(0,44);
   });
+  peers.shift();
   const accounts = await db.listAccount();
   for(const account of accounts) {
     if(!peers.includes(account.password)) {
@@ -114,13 +128,20 @@ const startUp = async () => {
 
 const resend = async () => {
   const result = await runCommand(`tunsafe show ${ interface } transfer`);
-  const peers = result.split('\n').filter(f => f).map(m => {
-    const data = m.split('\t');
-    return {
-      key: data[0],
-      flow: (+data[1]) + (+data[2]),
+    const peers = result.split('peer: ').filter(f => f).map(m => {
+        const aparse = m.split(/\r?\n/);
+        const transfer = aparse[3].substring(13).split(' ');
+        const recieved = toMib(transfer[0], transfer[1]);
+        const send = toMib(transfer[3], transfer[4]);
+        //const data = m.split('\t');
+	if (isNaN(send)) send=0;
+	if (isNaN(recieved)) recieved=0;
+        return {
+            key: m.substring(0,44),
+        flow: (+recieved) + (+send),
     };
   });
+	peers.shift();
   const accounts = await db.listAccount();
   for(const account of accounts) {
     if(!peers.map(m => m.key).includes(account.password)) {
@@ -246,12 +267,19 @@ const getClientIp = async port => {
   if(!account) {
     return [];
   }
-  const result = await runCommand(`tunsafe show ${ interface } dump | grep ${ account }`);
+    const result = await runCommand(`tunsafe show ${interface }`);
+    var client = result.split('peer: ');
+    var accountdata = client[client.findIndex((acc) => { return acc.startsWith(account); }, account)];
+    var accountParse = accountdata.split(/\r?\n/);
+
+    var ip = accountParse[1].substring(15, accountParse[1].indexOf('/'));
+    /*
   const client = result.split(/\s/)[2];
   if(client.trim() === '(none)') {
     return Promise.resolve([]);
   }
-  return Promise.resolve([ client.split(':')[0] ]);
+  */
+  return Promise.resolve([ ip ]);
 };
 
 exports.addAccount = addAccount;
@@ -261,3 +289,4 @@ exports.listAccount = listAccount;
 exports.getFlow = getFlow;
 exports.getVersion = getVersion;
 exports.getClientIp = getClientIp;
+
